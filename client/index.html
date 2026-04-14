@@ -1,0 +1,1832 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>NETRACE — Local v1</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;700&display=swap');
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        :root {
+            --bg: #0a0e1a;
+            --bg2: #111827;
+            --bg3: #1a2233;
+            --cyan: #00e5ff;
+            --green: #00ff88;
+            --red: #ff3355;
+            --amber: #ffaa00;
+            --purple: #b060ff;
+            --pink: #ff60aa;
+            --text: #e0eeff;
+            --muted: #6a8aaa;
+            --border: #1e3050;
+        }
+
+        body {
+            background: var(--bg);
+            color: var(--text);
+            font-family: 'Share Tech Mono', monospace;
+        }
+
+        #app {
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .screen {
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .screen.active {
+            display: flex;
+        }
+
+        #setup {
+            gap: 24px;
+        }
+
+        .logo {
+            font-family: 'Orbitron', monospace;
+            font-size: 28px;
+            font-weight: 700;
+            color: var(--cyan);
+            letter-spacing: 4px;
+            text-align: center;
+            text-shadow: 0 0 20px var(--cyan);
+        }
+
+        .logo-sub {
+            font-size: 11px;
+            color: var(--muted);
+            letter-spacing: 6px;
+            margin-top: 4px;
+        }
+
+        .setup-card {
+            background: var(--bg2);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 20px;
+            width: 100%;
+            max-width: 540px;
+        }
+
+        .setup-card h3 {
+            font-family: 'Orbitron', monospace;
+            font-size: 12px;
+            color: var(--cyan);
+            letter-spacing: 3px;
+            margin-bottom: 16px;
+        }
+
+        .player-row {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 12px;
+        }
+
+        .player-dot {
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            flex-shrink: 0;
+        }
+
+        .player-name-input {
+            background: var(--bg3);
+            border: 1px solid var(--border);
+            color: var(--text);
+            font-family: inherit;
+            font-size: 13px;
+            padding: 8px 12px;
+            border-radius: 6px;
+            flex: 1;
+            outline: none;
+        }
+
+        .player-name-input:focus {
+            border-color: var(--cyan);
+        }
+
+        .count-btn {
+            background: var(--bg3);
+            border: 1px solid var(--border);
+            color: var(--muted);
+            padding: 6px 14px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-family: inherit;
+            font-size: 13px;
+        }
+
+        .count-btn.active {
+            border-color: var(--cyan);
+            color: var(--cyan);
+        }
+
+        .btn-primary,
+        .btn-secondary,
+        .btn-muted {
+            background: transparent;
+            font-family: 'Orbitron', monospace;
+            font-size: 12px;
+            letter-spacing: 2px;
+            padding: 11px 22px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn-primary {
+            border: 1px solid var(--cyan);
+            color: var(--cyan);
+        }
+
+        .btn-primary:hover {
+            background: var(--cyan);
+            color: var(--bg);
+        }
+
+        .btn-secondary {
+            border: 1px solid var(--amber);
+            color: var(--amber);
+        }
+
+        .btn-secondary:hover {
+            background: var(--amber);
+            color: var(--bg);
+        }
+
+        .btn-muted {
+            border: 1px solid var(--muted);
+            color: var(--muted);
+        }
+
+        .btn-muted:hover {
+            background: var(--muted);
+            color: var(--bg);
+        }
+
+        #game {
+            padding: 18px 0 0;
+            width: 100%;
+            flex-direction: row;
+            flex-wrap: wrap;
+            align-items: flex-start;
+            gap: 0;
+        }
+
+        #game-body {
+            width: 100%;
+            display: flex;
+            flex-direction: row;
+            flex-wrap: wrap;
+            align-items: flex-start;
+            justify-content: center;
+            gap: 0;
+        }
+
+        #board-column {
+            flex: 1;
+            min-width: 280px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        #game-title {
+            width: 100%;
+            text-align: center;
+            font-family: 'Orbitron', monospace;
+            font-size: 20px;
+            letter-spacing: 5px;
+            color: var(--cyan);
+            text-shadow: 0 0 18px rgba(0, 229, 255, 0.35);
+            margin-bottom: 10px;
+        }
+
+        #game-title span {
+            display: block;
+            margin-top: 4px;
+            font-size: 10px;
+            color: var(--muted);
+            letter-spacing: 6px;
+        }
+
+        #game-toolbar {
+            width: 100%;
+            max-width: 680px;
+            display: flex;
+            justify-content: space-between;
+            gap: 10px;
+            align-items: center;
+            padding: 0 12px 10px;
+        }
+
+        #status-chip {
+            border: 1px solid var(--border);
+            background: var(--bg2);
+            color: var(--muted);
+            border-radius: 999px;
+            padding: 8px 12px;
+            font-size: 11px;
+            min-height: 34px;
+            display: flex;
+            align-items: center;
+        }
+
+        #board-wrap {
+            width: 100%;
+            position: relative;
+            display: flex;
+            justify-content: center;
+            padding-top: 12px;
+        }
+
+        #board-svg {
+            width: 100%;
+            max-width: 680px;
+            display: block;
+        }
+
+        #sidebar {
+            width: 600px;
+            min-width: 600px;
+            flex-shrink: 0;
+            background: var(--bg2);
+            border-left: 1px solid var(--border);
+            padding: 14px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            min-height: 500px;
+        }
+
+        @media (max-width: 900px) {
+            #game {
+                flex-direction: column;
+            }
+
+            #board-column,
+            #sidebar {
+                width: 100%;
+            }
+
+            #sidebar {
+                min-width: 0;
+                min-height: 0;
+                border-left: none;
+                border-top: 1px solid var(--border);
+            }
+
+            #game-body {
+                flex-direction: column;
+            }
+
+            #game-toolbar {
+                flex-direction: column;
+                align-items: stretch;
+            }
+        }
+
+        .panel-title {
+            font-family: 'Orbitron', monospace;
+            font-size: 10px;
+            letter-spacing: 3px;
+            color: var(--muted);
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 6px;
+            margin-bottom: 8px;
+        }
+
+        .player-card {
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 8px 10px;
+            transition: border-color 0.3s;
+        }
+
+        .player-card.active-turn {
+            border-color: var(--cyan);
+            box-shadow: 0 0 8px rgba(0, 229, 255, 0.2);
+        }
+
+        .pc-header {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 6px;
+        }
+
+        .pc-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            flex-shrink: 0;
+        }
+
+        .pc-name {
+            font-size: 12px;
+            font-weight: bold;
+        }
+
+        .pc-stats {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 4px;
+            font-size: 11px;
+            color: var(--muted);
+        }
+
+        .pc-cards {
+            display: flex;
+            gap: 4px;
+            flex-wrap: wrap;
+            margin-top: 6px;
+        }
+
+        .mini-card {
+            background: var(--bg3);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            font-size: 9px;
+            padding: 2px 6px;
+            color: var(--amber);
+        }
+
+        .card-count {
+            margin-top: 6px;
+            font-size: 10px;
+            color: var(--muted);
+        }
+
+        #action-area {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .turn-label {
+            font-family: 'Orbitron', monospace;
+            font-size: 10px;
+            color: var(--cyan);
+            letter-spacing: 2px;
+        }
+
+        #roll-btn,
+        #use-card-btn,
+        #end-turn-btn,
+        #peek-btn {
+            background: transparent;
+            font-family: 'Orbitron', monospace;
+            font-size: 11px;
+            letter-spacing: 1px;
+            padding: 10px;
+            border-radius: 6px;
+            cursor: pointer;
+            width: 100%;
+            transition: all 0.2s;
+        }
+
+        #roll-btn {
+            border: 1px solid var(--green);
+            color: var(--green);
+        }
+
+        #roll-btn:hover:not(:disabled) {
+            background: var(--green);
+            color: var(--bg);
+        }
+
+        #roll-btn:disabled {
+            opacity: 0.4;
+            cursor: default;
+        }
+
+        #use-card-btn {
+            border: 1px solid var(--amber);
+            color: var(--amber);
+            display: none;
+        }
+
+        #use-card-btn:hover {
+            background: var(--amber);
+            color: var(--bg);
+        }
+
+        #peek-btn {
+            border: 1px solid var(--purple);
+            color: var(--purple);
+            display: none;
+        }
+
+        #peek-btn:hover {
+            background: var(--purple);
+            color: var(--bg);
+        }
+
+        #end-turn-btn {
+            border: 1px solid var(--muted);
+            color: var(--muted);
+            display: none;
+        }
+
+        #end-turn-btn:hover {
+            background: var(--muted);
+            color: var(--bg);
+        }
+
+        #log {
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 8px;
+            font-size: 10px;
+            line-height: 1.7;
+            max-height: 160px;
+            overflow-y: auto;
+            color: var(--muted);
+        }
+
+        #log .log-entry {
+            padding: 1px 0;
+            border-bottom: 1px solid rgba(30, 48, 80, 0.5);
+        }
+
+        .log-cyan {
+            color: var(--cyan);
+        }
+
+        .log-green {
+            color: var(--green);
+        }
+
+        .log-red {
+            color: var(--red);
+        }
+
+        .log-amber {
+            color: var(--amber);
+        }
+
+        .log-purple {
+            color: var(--purple);
+        }
+
+        #sidebar-legend {
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 10px;
+            background: var(--bg3);
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 6px 10px;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 11px;
+            color: var(--muted);
+            min-height: 18px;
+        }
+
+        .legend-dot {
+            width: 9px;
+            height: 9px;
+            border-radius: 50%;
+            flex-shrink: 0;
+        }
+
+        #node-info {
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 12px;
+            background: var(--bg3);
+            min-height: 190px;
+            font-size: 12px;
+            line-height: 1.8;
+            color: var(--muted);
+        }
+
+        #node-info .ni-title {
+            color: var(--cyan);
+            font-family: 'Orbitron', monospace;
+            font-size: 12px;
+            letter-spacing: 1px;
+            margin-bottom: 6px;
+        }
+
+        #node-info .ni-main {
+            color: var(--text);
+            margin-bottom: 6px;
+            font-size: 13px;
+        }
+
+        #node-info .ni-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 6px;
+            margin-top: 10px;
+        }
+
+        .node-pick {
+            background: transparent;
+            border: 1px solid var(--border);
+            color: var(--text);
+            border-radius: 6px;
+            padding: 7px 8px;
+            font-family: inherit;
+            font-size: 11px;
+            cursor: pointer;
+            text-align: left;
+            transition: all 0.15s;
+        }
+
+        .node-pick:hover {
+            border-color: var(--cyan);
+            color: var(--cyan);
+        }
+
+        .node-pick.active {
+            border-color: var(--green);
+            color: var(--green);
+            box-shadow: 0 0 0 1px rgba(0, 255, 136, 0.15) inset;
+        }
+
+        .modal,
+        .overlay-screen {
+            display: none;
+            position: fixed;
+            inset: 0;
+            z-index: 200;
+            background: rgba(2, 7, 17, 0.82);
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .modal.show,
+        .overlay-screen.show {
+            display: flex;
+        }
+
+        .modal-card {
+            width: 100%;
+            max-width: 720px;
+            max-height: 90vh;
+            overflow-y: auto;
+            background: var(--bg2);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 18px;
+            box-shadow: 0 0 30px rgba(0, 229, 255, 0.16);
+        }
+
+        .modal-title {
+            font-family: 'Orbitron', monospace;
+            font-size: 13px;
+            color: var(--cyan);
+            letter-spacing: 2px;
+            margin-bottom: 12px;
+        }
+
+        .rules-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 12px;
+        }
+
+        .rules-box {
+            border: 1px solid var(--border);
+            background: var(--bg3);
+            border-radius: 10px;
+            padding: 12px;
+        }
+
+        .rules-box h4 {
+            color: var(--text);
+            font-size: 12px;
+            margin-bottom: 8px;
+        }
+
+        .rules-box p,
+        .rules-box li {
+            color: var(--muted);
+            font-size: 11px;
+            line-height: 1.7;
+        }
+
+        .rules-box ul {
+            padding-left: 18px;
+        }
+
+        .modal-actions {
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+            margin-top: 14px;
+            flex-wrap: wrap;
+        }
+
+        .card-list {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            max-height: 240px;
+            overflow-y: auto;
+        }
+
+        .card-item {
+            background: var(--bg3);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 8px 12px;
+            cursor: pointer;
+            transition: border-color 0.2s;
+        }
+
+        .card-item:hover {
+            border-color: var(--amber);
+        }
+
+        .card-item-name {
+            font-size: 12px;
+            color: var(--amber);
+            margin-bottom: 2px;
+        }
+
+        .card-item-desc {
+            font-size: 10px;
+            color: var(--muted);
+        }
+
+        .pass-card {
+            width: 100%;
+            max-width: 520px;
+            background: var(--bg2);
+            border: 1px solid var(--cyan);
+            border-radius: 16px;
+            padding: 22px;
+            text-align: center;
+            box-shadow: 0 0 35px rgba(0, 229, 255, 0.22);
+        }
+
+        .pass-card h2 {
+            font-family: 'Orbitron', monospace;
+            color: var(--cyan);
+            font-size: 18px;
+            letter-spacing: 3px;
+            margin-bottom: 12px;
+        }
+
+        .pass-card p {
+            color: var(--muted);
+            font-size: 12px;
+            line-height: 1.8;
+            margin-bottom: 12px;
+        }
+
+        .pass-name {
+            font-size: 24px;
+            margin: 12px 0;
+        }
+
+        .pass-cards {
+            margin-top: 8px;
+            font-size: 12px;
+            color: var(--amber);
+        }
+
+        #win-screen {
+            gap: 20px;
+            text-align: center;
+        }
+
+        .win-title {
+            font-family: 'Orbitron', monospace;
+            font-size: 32px;
+            color: var(--cyan);
+            text-shadow: 0 0 30px var(--cyan);
+        }
+
+        .win-sub {
+            font-size: 14px;
+            color: var(--muted);
+        }
+
+        .win-name {
+            font-size: 22px;
+            color: var(--green);
+            margin: 8px 0;
+        }
+
+        #win-guide {
+            width: 100%;
+            max-width: 980px;
+            margin-top: 8px;
+            background: rgba(17, 24, 39, 0.72);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 16px;
+            text-align: left;
+        }
+
+        #win-guide h3 {
+            font-family: 'Orbitron', monospace;
+            font-size: 12px;
+            letter-spacing: 3px;
+            color: var(--cyan);
+            margin-bottom: 10px;
+        }
+
+        #win-guide p {
+            font-size: 12px;
+            color: var(--muted);
+            line-height: 1.7;
+            margin-bottom: 12px;
+        }
+
+        #win-guide-grid {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 10px;
+        }
+
+        .guide-card {
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 10px;
+            background: var(--bg3);
+            min-height: 120px;
+        }
+
+        .guide-card-head {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 8px;
+        }
+
+        .guide-card-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            flex-shrink: 0;
+        }
+
+        .guide-card-title {
+            font-family: 'Orbitron', monospace;
+            font-size: 11px;
+            letter-spacing: 1px;
+            color: var(--text);
+        }
+
+        .guide-card-type {
+            font-size: 10px;
+            color: var(--muted);
+            margin-bottom: 6px;
+        }
+
+        .guide-card-text {
+            font-size: 11px;
+            line-height: 1.6;
+            color: var(--muted);
+        }
+
+        @media (max-width: 900px) {
+
+            .rules-grid,
+            #win-guide-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        @keyframes dice-roll {
+
+            0%,
+            100% {
+                transform: rotate(0deg)
+            }
+
+            25% {
+                transform: rotate(-15deg)
+            }
+
+            75% {
+                transform: rotate(15deg)
+            }
+        }
+
+        .rolling {
+            animation: dice-roll 0.4s ease-in-out 3;
+        }
+    </style>
+</head>
+<script src="/socket.io/socket.io.js"></script>
+
+<body>
+    <div id="app">
+        <div id="setup" class="screen active">
+            <div class="logo">NETRACE</div>
+            <div class="logo-sub">NETWORK BOARD GAME</div>
+
+            <div class="setup-card">
+                <h3>// MODO LOCAL</h3>
+                <div style="display:flex;gap:8px;margin-bottom:16px;">
+                    <button class="count-btn active" data-n="2" onclick="setPlayerCount(2)">2</button>
+                    <button class="count-btn" data-n="3" onclick="setPlayerCount(3)">3</button>
+                    <button class="count-btn" data-n="4" onclick="setPlayerCount(4)">4</button>
+                </div>
+                <div id="player-inputs"></div>
+                <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:10px;">
+                    <button class="btn-primary" onclick="startGame()">INICIAR PARTIDA ▶</button>
+                    <button class="btn-secondary" onclick="openRulesModal()">CÓMO JUGAR</button>
+                </div>
+            </div>
+
+
+            <div class="setup-card">
+                <h3>// MODO ONLINE</h3>
+                <div style="display:flex;flex-direction:column;gap:10px;">
+                    <input id="online-name" class="player-name-input" placeholder="Tu nombre" maxlength="20" />
+                    <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                        <button class="btn-primary" onclick="createOnlineRoom()">CREAR SALA</button>
+                        <input id="room-code-input" class="player-name-input" placeholder="CÓDIGO" maxlength="4"
+                            style="max-width:140px;" />
+                        <button class="btn-secondary" onclick="joinOnlineRoom()">UNIRSE</button>
+                    </div>
+                    <div id="room-info" style="font-size:11px;color:var(--muted);line-height:1.7;">Aún no estás en una
+                        sala.</div>
+                    <div id="lobby-players" style="font-size:11px;color:var(--text);line-height:1.7;"></div>
+                    <button id="start-online-btn" class="btn-primary" onclick="startOnlineGame()">
+                        INICIAR PARTIDA ONLINE ▶
+                    </button>
+                </div>
+            </div>
+
+            <div style="font-size:10px;color:var(--muted);text-align:center;max-width:500px;line-height:1.8;">
+                Puedes jugar en modo local o crear una sala online. Cada jugador representa un paquete de datos que debe
+                recorrer la red, administrar eventos y llegar al Servidor Central. Para ganar, necesita confirmar la
+                entrega con un ACK par.
+            </div>
+        </div>
+
+        <div id="game" class="screen">
+            <div id="game-body">
+                <div id="board-column">
+                    <div id="game-title">NETRACE<span><span id="mode-label">LOCAL MODE • HOTSEAT</span></span></div>
+                    <div id="game-toolbar">
+                        <div id="status-chip">Esperando inicio...</div>
+                        <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end;">
+                            <button class="btn-secondary" onclick="openRulesModal()">CÓMO JUGAR</button>
+                            <button class="btn-muted" onclick="showPassOverlay()">CAMBIAR JUGADOR</button>
+                        </div>
+                    </div>
+                    <div id="board-wrap">
+                        <svg id="board-svg" viewBox="0 0 540 560" xmlns="http://www.w3.org/2000/svg"></svg>
+                    </div>
+                </div>
+                <div id="sidebar">
+                    <div>
+                        <div class="panel-title">// JUGADORES</div>
+                        <div id="players-panel"></div>
+                    </div>
+                    <div id="action-area">
+                        <div class="turn-label" id="turn-label">TURNO: —</div>
+                        <button id="roll-btn" onclick="rollDice()">🎲 LANZAR DADO</button>
+                        <button id="use-card-btn" onclick="openCardModal()">🃏 USAR CARTA</button>
+                        <button id="peek-btn" onclick="openPeekModal()">👁 VER MIS CARTAS</button>
+                        <button id="end-turn-btn" onclick="endTurn()">▶ SIGUIENTE TURNO</button>
+                    </div>
+                    <div>
+                        <div class="panel-title">// LOG DE RED</div>
+                        <div id="log"></div>
+                    </div>
+                    <div>
+                        <div class="panel-title">// TIPOS DE NODO</div>
+                        <div id="sidebar-legend">
+                            <div class="legend-item"><span class="legend-dot"
+                                    style="background:#1a2a44;border:1px solid #1e3050"></span>NODO</div>
+                            <div class="legend-item"><span class="legend-dot"
+                                    style="background:#4a1520;border:1px solid #ff3355"></span>ROUTER SAT.</div>
+                            <div class="legend-item"><span class="legend-dot"
+                                    style="background:#0d3a2a;border:1px solid #00ff88"></span>FIBRA</div>
+                            <div class="legend-item"><span class="legend-dot"
+                                    style="background:#0d2a4a;border:1px solid #00e5ff"></span>TCP</div>
+                            <div class="legend-item"><span class="legend-dot"
+                                    style="background:#4a2000;border:1px solid #ff6600"></span>DDoS</div>
+                            <div class="legend-item"><span class="legend-dot"
+                                    style="background:#2a1a4a;border:1px solid #b060ff"></span>BROADCAST</div>
+                            <div class="legend-item"><span class="legend-dot"
+                                    style="background:#1a3a1a;border:1px solid #00aa44"></span>ADMIN</div>
+                            <div class="legend-item"><span class="legend-dot"
+                                    style="background:#1a0d4a;border:1px solid #b060ff"></span>SERVIDOR</div>
+                        </div>
+                    </div>
+                    <div>
+                        <div class="panel-title">// INFO NODO</div>
+                        <div id="node-info">Haz clic en un nodo del mapa para ver su descripción.</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="win-screen" class="screen">
+            <div class="win-title">¡TRANSMISIÓN COMPLETA!</div>
+            <div class="win-sub">Paquete de datos entregado con éxito al</div>
+            <div class="win-sub">Servidor Central</div>
+            <div class="win-name" id="win-name"></div>
+            <div id="win-guide">
+                <h3>// QUÉ SIGNIFICA CADA NODO</h3>
+                <p>Estas casillas representan estados o eventos de red. Algunas te benefician, otras te retrasan y otras
+                    cambian
+                    la ruta del juego.</p>
+                <div id="win-guide-grid"></div>
+            </div>
+            <button class="btn-primary" onclick="resetGame()" style="margin-top:12px;">NUEVA PARTIDA</button>
+        </div>
+    </div>
+
+    <div id="rules-modal" class="modal">
+        <div class="modal-card">
+            <div class="modal-title">// REGLAS DEL JUEGO</div>
+            <div class="rules-grid">
+                <div class="rules-box">
+                    <h4>Objetivo</h4>
+                    <p>Ser el primer paquete de datos en llegar al Servidor Central y confirmar la transmisión con un
+                        ACK par.</p>
+                </div>
+                <div class="rules-box">
+                    <h4>Turno</h4>
+                    <p>En tu turno lanzas el dado, avanzas según el resultado y resuelves el efecto de los nodos por los
+                        que pasas
+                        o en los que caes.</p>
+                </div>
+                <div class="rules-box">
+                    <h4>Tipos de nodo</h4>
+                    <ul>
+                        <li><strong>Fibra:</strong> acelera tu avance.</li>
+                        <li><strong>Router Saturado:</strong> te hace perder turno.</li>
+                        <li><strong>TCP:</strong> te entrega una protección.</li>
+                        <li><strong>DDoS:</strong> te retrasa.</li>
+                        <li><strong>Broadcast:</strong> reduce el próximo movimiento de todos.</li>
+                        <li><strong>Admin:</strong> te da carta de reconfiguración.</li>
+                    </ul>
+                </div>
+                <div class="rules-box">
+                    <h4>Cartas</h4>
+                    <ul>
+                        <li><strong>TCP Shield:</strong> ignora el próximo efecto negativo de tipo Router, DDoS o DDoS
+                            ATK.</li>
+                        <li><strong>RECONFIG:</strong> bloquea o libera una ruta.</li>
+                        <li><strong>PING:</strong> roba una carta.</li>
+                        <li><strong>DDoS ATK:</strong> hace retroceder a un rival.</li>
+                        <li><strong>DEEP INSPECT:</strong> descarta una carta de un rival al azar.</li>
+                    </ul>
+                </div>
+                <div class="rules-box">
+                    <h4>Modo local</h4>
+                    <p>El juego está pensado para una sola pantalla. Al finalizar un turno puedes usar “Cambiar jugador”
+                        para
+                        pasar el dispositivo sin mostrar las cartas del siguiente participante.</p>
+                </div>
+                <div class="rules-box">
+                    <h4>Victoria</h4>
+                    <p>Llegar al Servidor Central no basta: debes lanzar ACK. Si sale número par, la entrega queda
+                        confirmada y
+                        ganas.</p>
+                </div>
+            </div>
+            <div class="modal-actions">
+                <button class="btn-primary" onclick="closeRulesModal()">ENTENDIDO</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="card-modal" class="modal">
+        <div class="modal-card" style="max-width:420px;">
+            <div class="modal-title">// USAR CARTA</div>
+            <div id="card-list" class="card-list"></div>
+            <div class="modal-actions">
+                <button class="btn-muted" onclick="closeCardModal()">CANCELAR</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="peek-modal" class="modal">
+        <div class="modal-card" style="max-width:420px;">
+            <div class="modal-title">// MIS CARTAS</div>
+            <div id="peek-list" class="card-list"></div>
+            <div class="modal-actions">
+                <button class="btn-muted" onclick="closePeekModal()">CERRAR</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="pass-overlay" class="overlay-screen">
+        <div class="pass-card">
+            <h2>PASAR DISPOSITIVO</h2>
+            <p>Entrega la pantalla al siguiente jugador. Cuando esté listo, presiona continuar.</p>
+            <div class="pass-name" id="pass-name"></div>
+            <div class="pass-cards" id="pass-cards"></div>
+            <div class="modal-actions" style="justify-content:center; margin-top:18px;">
+                <button class="btn-primary" onclick="hidePassOverlay()">CONTINUAR</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const socket = io();
+        let room_code = null;
+        let my_socket_id = null;
+        let is_online_mode = false;
+
+        socket.on('connect', () => {
+            my_socket_id = socket.id;
+        });
+
+        const COLORS = ['#00e5ff', '#00ff88', '#ffaa00', '#b060ff'];
+        const NODES = [
+            { id: 0, x: 270, y: 510, type: 'entry', label: 'ENTRADA' },
+            { id: 1, x: 180, y: 490, type: 'normal' },
+            { id: 2, x: 100, y: 440, type: 'fiber', label: 'FIBRA' },
+            { id: 3, x: 60, y: 360, type: 'normal' },
+            { id: 4, x: 60, y: 270, type: 'router', label: 'ROUTER SAT.' },
+            { id: 5, x: 80, y: 185, type: 'normal' },
+            { id: 6, x: 140, y: 120, type: 'tcp', label: 'TCP' },
+            { id: 7, x: 210, y: 75, type: 'normal' },
+            { id: 8, x: 270, y: 55, type: 'fiber', label: 'FIBRA' },
+            { id: 9, x: 330, y: 75, type: 'normal' },
+            { id: 10, x: 400, y: 120, type: 'ddos', label: 'DDoS' },
+            { id: 11, x: 460, y: 185, type: 'normal' },
+            { id: 12, x: 480, y: 270, type: 'router', label: 'ROUTER SAT.' },
+            { id: 13, x: 460, y: 360, type: 'normal' },
+            { id: 14, x: 400, y: 440, type: 'tcp', label: 'TCP' },
+            { id: 15, x: 320, y: 490, type: 'normal' },
+            { id: 16, x: 190, y: 400, type: 'broadcast', label: 'BROADCAST' },
+            { id: 17, x: 155, y: 300, type: 'normal' },
+            { id: 18, x: 200, y: 200, type: 'admin', label: 'ADMIN' },
+            { id: 19, x: 290, y: 165, type: 'normal' },
+            { id: 20, x: 370, y: 200, type: 'ddos', label: 'DDoS' },
+            { id: 21, x: 400, y: 300, type: 'normal' },
+            { id: 22, x: 360, y: 390, type: 'fiber', label: 'FIBRA' },
+            { id: 23, x: 270, y: 420, type: 'normal' },
+            { id: 24, x: 270, y: 295, type: 'server', label: 'SERVIDOR CENTRAL' }
+        ];
+        const EDGES = [
+            [0, 1], [1, 2], [2, 3], [3, 4], [4, 5], [5, 6], [6, 7], [7, 8], [8, 9], [9, 10], [10, 11], [11, 12], [12, 13], [13, 14], [14, 15], [15, 0],
+            [1, 16], [3, 17], [5, 18], [7, 19], [9, 20], [11, 21], [13, 22], [15, 23],
+            [16, 17], [17, 18], [18, 19], [19, 20], [20, 21], [21, 22], [22, 23], [23, 16],
+            [17, 24], [19, 24], [21, 24], [23, 24],
+            [16, 23], [18, 17], [20, 19], [22, 21]
+        ];
+        const ADJ = {};
+        NODES.forEach(n => ADJ[n.id] = []);
+        EDGES.forEach(([a, b]) => { ADJ[a].push(b); ADJ[b].push(a); });
+        const TYPE_COLORS = {
+            entry: '#334466', normal: '#1a2a44', router: '#4a1520', fiber: '#0d3a2a', tcp: '#0d2a4a', ddos: '#4a2000', broadcast: '#2a1a4a', admin: '#1a3a1a', server: '#1a0d4a'
+        };
+        const TYPE_STROKES = {
+            entry: '#3366aa', normal: '#1e3050', router: '#ff3355', fiber: '#00ff88', tcp: '#00e5ff', ddos: '#ff6600', broadcast: '#b060ff', admin: '#00aa44', server: '#b060ff'
+        };
+        const NODE_INFO = {
+            entry: { name: 'Entrada', pass: 'Sin efecto especial.', land: 'Punto de inicio.' },
+            normal: { name: 'Nodo Normal', pass: 'Sin efecto especial.', land: 'Sin efecto especial.' },
+            router: { name: 'Router Saturado', pass: 'Pierdes 1 turno.', land: 'Pierdes 1 turno.' },
+            fiber: { name: 'Fibra Óptica', pass: 'Ganas +1 paso restante.', land: 'Avanzas 3 nodos extra.' },
+            tcp: { name: 'TCP', pass: 'Recibes carta TCP SHIELD.', land: 'Recibes carta TCP SHIELD.' },
+            ddos: { name: 'DDoS', pass: 'Pierdes 1 paso restante.', land: 'Retrocedes 2 nodos.' },
+            broadcast: { name: 'Broadcast', pass: 'Todos moverán a la mitad el próximo turno.', land: 'Todos moverán a la mitad el próximo turno.' },
+            admin: { name: 'Admin', pass: 'Recibes carta RECONFIG.', land: 'Recibes carta RECONFIG.' },
+            server: { name: 'Servidor Central', pass: 'Debes lanzar ACK para confirmar.', land: 'Debes lanzar ACK para confirmar.' }
+        };
+        const NODE_GUIDE = [
+            { type: 'entry', label: 'ENTRADA', color: '#3366aa', title: 'Entrada', text: 'Es el punto de inicio de cada jugador. No tiene efecto especial; solo marca dónde comienza la ruta.' },
+            { type: 'normal', label: 'NODO NORMAL', color: '#1e3050', title: 'Nodo normal', text: 'Casilla de tránsito. No modifica tu turno ni tu movimiento; sirve como paso intermedio en la red.' },
+            { type: 'router', label: 'ROUTER SAT.', color: '#ff3355', title: 'Router saturado', text: 'Simula congestión de red. Si caes aquí o la atraviesas, pierdes un turno por saturación.' },
+            { type: 'fiber', label: 'FIBRA', color: '#00ff88', title: 'Fibra óptica', text: 'Representa una conexión rápida. Te da impulso: al caer avanzas 3 nodos extra y al pasar sumas 1 paso.' },
+            { type: 'tcp', label: 'TCP', color: '#00e5ff', title: 'TCP', text: 'Indica comunicación confiable. Te otorga una carta TCP Shield para protegerte del próximo efecto negativo.' },
+            { type: 'ddos', label: 'DDoS', color: '#ff6600', title: 'DDoS', text: 'Es un ataque de tráfico malicioso. Al caer retrocedes 2 nodos y al pasar pierdes 1 paso de movimiento.' },
+            { type: 'broadcast', label: 'BROADCAST', color: '#b060ff', title: 'Broadcast', text: 'Representa una transmisión general a toda la red. Activa movimiento a la mitad para todos en el siguiente turno.' },
+            { type: 'admin', label: 'ADMIN', color: '#00aa44', title: 'Nodo admin', text: 'Es un nodo de control. Te entrega una carta RECONFIG para bloquear o liberar una ruta del tablero.' },
+            { type: 'server', label: 'SERVIDOR CENTRAL', color: '#b060ff', title: 'Servidor central', text: 'Es el objetivo final. Cuando llegas aquí debes confirmar la transmisión con un lanzamiento ACK par.' }
+        ];
+
+        let G = {};
+
+        socket.on("room_created", ({ code, hostId }) => {
+            room_code = code;
+            current_host_id = hostId || null;
+            document.getElementById("room-info").textContent = `Sala creada: ${code} • Jugadores: 1/4`;
+        });
+
+        let current_host_id = null;
+
+        socket.on("players_update", (data) => {
+            const players = data.players || [];
+            const hostId = data.hostId || null;
+
+            current_host_id = hostId;
+
+            const room_info = document.getElementById("room-info");
+            const lobby_players = document.getElementById("lobby-players");
+            const start_btn = document.getElementById("start-online-btn");
+
+            if (room_info && room_code) {
+                room_info.textContent = `Sala: ${room_code} • Jugadores: ${players.length}/4`;
+            }
+
+            if (lobby_players) {
+                lobby_players.innerHTML = players.length
+                    ? players.map(p => `• ${p.name}${p.id === hostId ? " (host)" : ""}`).join("<br>")
+                    : "Sin jugadores todavía";
+            }
+
+            if (start_btn) {
+                start_btn.style.display = socket.id === hostId ? "block" : "none";
+            }
+        });
+
+        socket.on('error_msg', (msg) => {
+            alert(msg);
+        });
+
+        socket.on('game_started', (state) => {
+            is_online_mode = true;
+            G = state;
+            G.selectedNode = G.selectedNode ?? 0;
+            document.getElementById('mode-label').textContent = `ONLINE MODE • SALA ${state.roomCode || room_code || ''}`;
+            showScreen('game');
+            clearLog();
+            renderLogFromState();
+            drawBoard();
+            renderSidebar();
+            renderNodeInfo(G.selectedNode ?? 0);
+        });
+
+        socket.on('state_update', (state) => {
+            if (!is_online_mode) return;
+            G = state;
+            G.selectedNode = G.selectedNode ?? 0;
+            document.getElementById('mode-label').textContent = `ONLINE MODE • SALA ${state.roomCode || room_code || ''}`;
+            renderLogFromState();
+
+            if (G.phase === 'finished') {
+                document.getElementById('win-name').textContent = G.winnerName || 'Ganador';
+                renderFinalGuide();
+                showScreen('win-screen');
+                return;
+            }
+
+            if (document.getElementById('game').classList.contains('active')) {
+                drawBoard();
+                renderSidebar();
+                renderNodeInfo(G.selectedNode ?? 0);
+            }
+        });
+
+        function renderLogFromState() {
+            const log = document.getElementById('log');
+            if (!log || !Array.isArray(G.log)) return;
+            log.innerHTML = G.log.map(msg => `<div class="log-entry">> ${msg}</div>`).join('');
+            log.scrollTop = log.scrollHeight;
+        }
+
+        function createOnlineRoom() {
+            const name = (document.getElementById('online-name').value || 'Jugador').trim() || 'Jugador';
+            is_online_mode = true;
+            socket.emit('create_room', { name });
+        }
+
+        function joinOnlineRoom() {
+            const name = (document.getElementById('online-name').value || 'Jugador').trim() || 'Jugador';
+            const code = (document.getElementById('room-code-input').value || '').trim().toUpperCase();
+            if (!code) return alert('Escribe un código de sala');
+            is_online_mode = true;
+            room_code = code;
+            socket.emit('join_room', { code, name });
+            document.getElementById('room-info').textContent = `Intentando entrar a ${code}...`;
+            document.getElementById('mode-label').textContent = 'ONLINE MODE • LOBBY';
+        }
+
+        function startOnlineGame() {
+            if (!room_code) return alert('Primero crea o únete a una sala');
+            socket.emit('start_game', { code: room_code });
+        }
+
+
+        function setPlayerCount(n) {
+            document.querySelectorAll('.count-btn').forEach(b => b.classList.toggle('active', +b.dataset.n === n));
+            G.numPlayers = n;
+            renderPlayerInputs();
+        }
+
+        function renderPlayerInputs() {
+            const c = document.getElementById('player-inputs');
+            c.innerHTML = '';
+            const defaults = ['NODO-ALPHA', 'NODO-BETA', 'NODO-GAMMA', 'NODO-DELTA'];
+            for (let i = 0; i < G.numPlayers; i++) {
+                c.innerHTML += `<div class="player-row">
+      <div class="player-dot" style="background:${COLORS[i]}"></div>
+      <input class="player-name-input" id="pname-${i}" value="${defaults[i]}" maxlength="12"/>
+    </div>`;
+            }
+        }
+
+        function startGame() {
+            is_online_mode = false;
+            room_code = null;
+            document.getElementById('mode-label').textContent = 'LOCAL MODE • HOTSEAT';
+            G.players = [];
+            for (let i = 0; i < G.numPlayers; i++) {
+                const name = document.getElementById(`pname-${i}`).value || `P${i + 1}`;
+                G.players.push({ id: i, name, color: COLORS[i], pos: 0, cards: [], skips: 0, halfMove: false, _tcpShield: false });
+            }
+            G.turn = 0;
+            G.phase = 'roll';
+            G.blockedEdge = null;
+            G.pendingMove = null;
+            G.selectedNode = 0;
+            G.log = [];
+            showScreen('game');
+            drawBoard();
+            renderSidebar();
+            renderNodeInfo(0);
+            clearLog();
+            addLog(`Sistema iniciado. Turno de <span class="log-cyan">${G.players[0].name}</span>`);
+            showPassOverlay(true);
+        }
+
+        function showScreen(id) {
+            document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+            document.getElementById(id).classList.add('active');
+        }
+
+        function drawBoard() {
+            const svg = document.getElementById('board-svg');
+            const chooseMode = G.phase === 'choose' && G.pendingMove;
+            const selectable = chooseMode ? new Set(G.pendingMove.options || []) : new Set();
+            let html = `<defs>
+    <filter id="glow"><feGaussianBlur stdDeviation="2" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+  </defs>`;
+            html += `<rect width="540" height="560" fill="#0a0e1a"/>`;
+            for (let x = 0; x < 540; x += 30) html += `<line x1="${x}" y1="0" x2="${x}" y2="560" stroke="#0d1520" stroke-width="0.5"/>`;
+            for (let y = 0; y < 560; y += 30) html += `<line x1="0" y1="${y}" x2="540" y2="${y}" stroke="#0d1520" stroke-width="0.5"/>`;
+
+            EDGES.forEach(([a, b]) => {
+                const na = NODES[a], nb = NODES[b];
+                const isBlocked = G.blockedEdge && ((G.blockedEdge[0] === a && G.blockedEdge[1] === b) || (G.blockedEdge[0] === b && G.blockedEdge[1] === a));
+                html += `<line x1="${na.x}" y1="${na.y}" x2="${nb.x}" y2="${nb.y}" stroke="${isBlocked ? '#ff3355' : '#1e3a5a'}" stroke-width="${isBlocked ? '1.5' : '1'}" stroke-dasharray="${isBlocked ? '4,3' : ''}" opacity="0.7"/>`;
+            });
+
+            NODES.forEach(n => {
+                const r = n.type === 'server' ? 28 : n.type === 'entry' ? 18 : 16;
+                const sc = TYPE_STROKES[n.type];
+                const fc = TYPE_COLORS[n.type];
+                const glowStr = (n.type === 'server' || n.type === 'fiber') ? ' filter="url(#glow)"' : '';
+                const isSelectable = selectable.has(n.id);
+                const isSelected = !chooseMode && G.selectedNode === n.id;
+                const strokeColor = isSelectable ? '#00ff88' : (isSelected ? '#00e5ff' : sc);
+                const strokeWidth = isSelectable ? 3 : (isSelected ? 3 : (n.type === 'server' ? 2 : 1.5));
+                html += `<circle cx="${n.x}" cy="${n.y}" r="${r}" fill="${fc}" stroke="${strokeColor}" stroke-width="${strokeWidth}"${isSelectable ? ' filter="url(#glow)"' : glowStr} style="cursor:pointer" onclick="handleNodeClick(${n.id})"/>`;
+                if (n.label) {
+                    const fs = n.type === 'server' ? 9 : 8;
+                    const lines = n.label.split(' ');
+                    if (lines.length === 1) {
+                        html += `<text x="${n.x}" y="${n.y + 3}" text-anchor="middle" font-family="Share Tech Mono,monospace" font-size="${fs}" fill="${sc}">${n.label}</text>`;
+                    } else {
+                        html += `<text x="${n.x}" y="${n.y - 1}" text-anchor="middle" font-family="Share Tech Mono,monospace" font-size="${fs}" fill="${sc}">${lines[0]}</text>`;
+                        html += `<text x="${n.x}" y="${n.y + 8}" text-anchor="middle" font-family="Share Tech Mono,monospace" font-size="${fs}" fill="${sc}">${lines[1]}</text>`;
+                    }
+                }
+                if (n.type === 'normal' || n.type === 'entry') {
+                    html += `<text x="${n.x}" y="${n.y + 4}" text-anchor="middle" font-family="Share Tech Mono,monospace" font-size="8" fill="#3a5a7a">${n.id}</text>`;
+                }
+            });
+
+            G.players.forEach((p, i) => {
+                const n = NODES[p.pos];
+                const angle = (i / G.players.length) * Math.PI * 2;
+                const offset = G.players.length > 1 ? 10 : 0;
+                const tx = n.x + Math.cos(angle) * offset;
+                const ty = n.y + Math.sin(angle) * offset;
+                html += `<circle cx="${tx}" cy="${ty}" r="7" fill="${p.color}" stroke="#0a0e1a" stroke-width="1.5" opacity="0.95" filter="url(#glow)"/>`;
+                html += `<text x="${tx}" y="${ty + 4}" text-anchor="middle" font-family="Share Tech Mono,monospace" font-size="7" fill="#0a0e1a" font-weight="bold">${p.name[0]}</text>`;
+            });
+
+            svg.innerHTML = html;
+        }
+
+        function renderSidebar() {
+            const panel = document.getElementById('players-panel');
+            panel.innerHTML = '';
+            G.players.forEach((p, i) => {
+                const active = i === G.turn;
+                const canRevealCards = is_online_mode ? p.id === my_socket_id : active;
+                panel.innerHTML += `<div class="player-card ${active ? 'active-turn' : ''}" style="margin-bottom:8px;">
+      <div class="pc-header">
+        <div class="pc-dot" style="background:${p.color}"></div>
+        <div class="pc-name" style="color:${p.color}">${p.name}${is_online_mode && p.id === my_socket_id ? ' (TÚ)' : ''}</div>
+        ${active ? '<span style="font-size:9px;color:var(--cyan);margin-left:auto;">▶ TURNO</span>' : ''}
+      </div>
+      <div class="pc-stats">
+        <span>POS:</span><span>${p.pos}</span>
+        <span>SKIPS:</span><span>${p.skips}</span>
+        <span>ESCUDO:</span><span>${p._tcpShield ? 'ACTIVO' : '—'}</span>
+      </div>
+      ${canRevealCards
+                        ? `<div class="pc-cards">${p.cards.map(c => `<div class="mini-card">${c}</div>`).join('') || '<div class="card-count">Sin cartas</div>'}</div>`
+                        : `<div class="card-count">Cartas ocultas: ${p.cards.length}</div>`}
+    </div>`;
+            });
+
+            const cp = G.players[G.turn];
+            const isMyTurn = !is_online_mode || cp.id === my_socket_id;
+            document.getElementById('turn-label').textContent = `TURNO: ${cp.name}${is_online_mode && isMyTurn ? ' (TÚ)' : ''}`;
+            updateStatusChip();
+
+            const rollBtn = document.getElementById('roll-btn');
+            const useBtn = document.getElementById('use-card-btn');
+            const endBtn = document.getElementById('end-turn-btn');
+            const peekBtn = document.getElementById('peek-btn');
+
+            const myPlayer = is_online_mode ? (G.players.find(p => p.id === my_socket_id) || cp) : cp;
+
+            rollBtn.textContent = '🎲 LANZAR DADO';
+            if (G.phase === 'roll') {
+                rollBtn.disabled = !isMyTurn;
+                useBtn.style.display = isMyTurn && myPlayer && myPlayer.cards.length > 0 ? 'block' : 'none';
+                peekBtn.style.display = myPlayer && myPlayer.cards.length > 0 ? 'block' : 'none';
+                endBtn.style.display = 'none';
+            } else if (G.phase === 'choose') {
+                rollBtn.disabled = true;
+                rollBtn.textContent = '🎲 ELIGE RUTA EN EL TABLERO';
+                useBtn.style.display = 'none';
+                peekBtn.style.display = myPlayer && myPlayer.cards.length > 0 ? 'block' : 'none';
+                endBtn.style.display = 'none';
+            } else if (G.phase === 'ack') {
+                rollBtn.disabled = !isMyTurn;
+                rollBtn.textContent = '🎲 LANZAR ACK';
+                useBtn.style.display = 'none';
+                peekBtn.style.display = myPlayer && myPlayer.cards.length > 0 ? 'block' : 'none';
+                endBtn.style.display = 'none';
+            } else {
+                rollBtn.disabled = true;
+                useBtn.style.display = 'none';
+                peekBtn.style.display = myPlayer && myPlayer.cards.length > 0 ? 'block' : 'none';
+                endBtn.style.display = isMyTurn ? 'block' : 'none';
+            }
+
+            renderNodeInfo(G.selectedNode ?? 0);
+        }
+
+        function updateStatusChip() {
+            const cp = G.players[G.turn];
+            const chip = document.getElementById('status-chip');
+            const prefix = is_online_mode
+                ? `Sala ${room_code || G.roomCode || '----'} • `
+                : 'Local • ';
+            const labels = {
+                roll: `Turno activo de ${cp.name}. Lanza el dado.`,
+                choose: `Elige la siguiente ruta para ${cp.name}.`,
+                ack: `${cp.name} está en el Servidor Central. Falta confirmar con ACK.`,
+                done: `Turno resuelto.${is_online_mode ? ' Esperando siguiente acción.' : ' Puedes pasar al siguiente jugador.'}`,
+                finished: `Partida finalizada.`
+            };
+            chip.textContent = prefix + (labels[G.phase] || 'Partida en curso');
+        }
+
+        function clearLog() { document.getElementById('log').innerHTML = ''; }
+
+        function rollDice() {
+            if (is_online_mode) {
+                if (!room_code && G.roomCode) room_code = G.roomCode;
+                if (G.phase === 'ack') {
+                    socket.emit('roll_ack', { code: room_code || G.roomCode });
+                    return;
+                }
+                if (G.phase !== 'roll') return;
+                socket.emit('roll_dice', { code: room_code || G.roomCode });
+                return;
+            }
+
+            const cp = G.players[G.turn];
+            if (G.phase === 'ack') return rollACK();
+            if (G.phase !== 'roll') return;
+            if (cp.skips > 0) {
+                cp.skips--;
+                addLog(`<span style="color:${cp.color}">${cp.name}</span> <span class="log-red">pierde turno (Router Saturado)</span>`);
+                G.phase = 'done';
+                renderSidebar();
+                return;
+            }
+
+            let roll = Math.ceil(Math.random() * 6);
+            if (cp.halfMove) {
+                roll = Math.max(1, Math.ceil(roll / 2));
+                cp.halfMove = false;
+                addLog(`<span class="log-purple">Broadcast activo — movimiento reducido a ${roll}</span>`);
+            }
+
+            addLog(`<span style="color:${cp.color}">${cp.name}</span> lanzó <span class="log-amber">${roll}</span>`);
+            G.pendingMove = { playerId: cp.id, remaining: roll, current: cp.pos, previous: null, options: [] };
+            continueMovement();
+        }
+
+        function getValidNeighbors(fromId, previousId = null) {
+            return ADJ[fromId].filter(n => {
+                if (previousId !== null && n === previousId) return false;
+                if (!G.blockedEdge) return true;
+                const [ba, bb] = G.blockedEdge;
+                return !((fromId === ba && n === bb) || (fromId === bb && n === ba));
+            });
+        }
+
+        function continueMovement() {
+            if (!G.pendingMove) return;
+            const cp = G.players[G.turn];
+            while (G.pendingMove.remaining > 0) {
+                const neighbors = getValidNeighbors(G.pendingMove.current, G.pendingMove.previous);
+                if (!neighbors.length) break;
+                if (neighbors.length === 1) {
+                    const nextNode = neighbors[0];
+                    G.pendingMove.previous = G.pendingMove.current;
+                    G.pendingMove.current = nextNode;
+                    cp.pos = G.pendingMove.current;
+                    G.pendingMove.remaining--;
+                    if (G.pendingMove.remaining > 0) {
+                        const shouldStop = applyPassThroughEffect(cp, NODES[cp.pos]);
+                        if (shouldStop) {
+                            G.pendingMove = null;
+                            drawBoard();
+                            renderSidebar();
+                            return;
+                        }
+                    }
+                    continue;
+                }
+                G.pendingMove.options = neighbors;
+                G.phase = 'choose';
+                addLog(`<span style="color:${cp.color}">${cp.name}</span> debe elegir ruta (${G.pendingMove.remaining} paso${G.pendingMove.remaining === 1 ? '' : 's'} restantes)`);
+                drawBoard();
+                renderSidebar();
+                return;
+            }
+
+            cp.pos = G.pendingMove.current;
+            G.pendingMove = null;
+            applyNodeEffect(cp, NODES[cp.pos]);
+        }
+
+        function handleNodeClick(nodeId) {
+            if (is_online_mode) {
+                if (G.phase === 'choose' && G.pendingMove) {
+                    socket.emit('choose_path', { code: room_code || G.roomCode, nodeId });
+                    return;
+                }
+                renderNodeInfo(nodeId);
+                drawBoard();
+                return;
+            }
+
+            if (G.phase === 'choose' && G.pendingMove) {
+                const cp = G.players[G.turn];
+                if (!G.pendingMove.options.includes(nodeId)) return;
+                G.pendingMove.previous = G.pendingMove.current;
+                G.pendingMove.current = nodeId;
+                cp.pos = nodeId;
+                G.pendingMove.remaining--;
+                addLog(`<span style="color:${cp.color}">${cp.name}</span> eligió nodo <span class="log-cyan">${nodeId}</span>`);
+                if (G.pendingMove.remaining > 0) {
+                    const shouldStop = applyPassThroughEffect(cp, NODES[cp.pos]);
+                    if (shouldStop) {
+                        G.pendingMove = null;
+                        drawBoard();
+                        renderSidebar();
+                        return;
+                    }
+                }
+                continueMovement();
+                return;
+            }
+            renderNodeInfo(nodeId);
+            drawBoard();
+        }
+
+        function renderNodeInfo(nodeId) {
+            const node = NODES[nodeId];
+            const info = NODE_INFO[node.type] || NODE_INFO.normal;
+            const nodeLabel = node.label || info.name;
+            G.selectedNode = nodeId;
+            document.getElementById('node-info').innerHTML = `<div class="ni-title">NODO ${node.id} • ${node.type.toUpperCase()}</div>
+    <div class="ni-main">${nodeLabel}</div>
+    <div>Paso: ${info.pass}</div>
+    <div>Al caer: ${info.land}</div>
+    <div class="ni-grid">
+      ${NODES.map(n => `<button class="node-pick ${n.id === nodeId ? 'active' : ''}" onclick="renderNodeInfo(${n.id}); drawBoard(); return false;">${n.label || 'Nodo ' + n.id}</button>`).join('')}
+    </div>`;
+        }
+
+        function consumeShieldIfActive(player, reason) {
+            if (!player._tcpShield) return false;
+            player._tcpShield = false;
+            addLog(`<span class="log-cyan">TCP Shield protegió a ${player.name} de ${reason}</span>`);
+            return true;
+        }
+
+        function applyPassThroughEffect(player, node) {
+            switch (node.type) {
+                case 'fiber':
+                    G.pendingMove.remaining += 1;
+                    addLog(`<span class="log-green">Fibra en tránsito — ${player.name} gana +1 paso</span>`);
+                    break;
+                case 'tcp':
+                    player.cards.push('TCP');
+                    addLog(`<span class="log-cyan">TCP en tránsito — ${player.name} obtiene carta TCP SHIELD</span>`);
+                    break;
+            }
+            return false;
+        }
+
+        function dist(a, b) {
+            const na = NODES[a], nb = NODES[b];
+            return Math.hypot(na.x - nb.x, na.y - nb.y);
+        }
+
+        function applyNodeEffect(player, node) {
+            switch (node.type) {
+                case 'server':
+                    addLog(`<span style="color:${player.color}">${player.name}</span> <span class="log-cyan">llegó al Servidor Central — lanzar ACK</span>`);
+                    G.phase = 'ack';
+                    renderSidebar(); drawBoard(); return;
+                case 'router':
+                    if (!consumeShieldIfActive(player, 'Router Saturado')) {
+                        addLog(`<span class="log-red">Router Saturado — ${player.name} pierde 1 turno</span>`);
+                        player.skips++;
+                    }
+                    break;
+                case 'fiber': {
+                    addLog(`<span class="log-green">Fibra Óptica — ${player.name} avanza 3 nodos extra</span>`);
+                    let cur = player.pos;
+                    let previous = null;
+                    for (let i = 0; i < 3; i++) {
+                        const nb = getValidNeighbors(cur, previous);
+                        if (!nb.length) break;
+                        nb.sort((a, b) => dist(a, 24) - dist(b, 24));
+                        const nextNode = nb[0];
+                        previous = cur;
+                        cur = nextNode;
+                    }
+                    player.pos = cur;
+                    if (NODES[cur].type === 'server') {
+                        G.phase = 'ack';
+                        addLog(`<span class="log-cyan">${player.name} llegó al Servidor Central — lanzar ACK</span>`);
+                        renderSidebar(); drawBoard(); return;
+                    }
+                    break;
+                }
+                case 'tcp':
+                    addLog(`<span class="log-cyan">Casilla TCP — ${player.name} obtiene carta TCP SHIELD</span>`);
+                    player.cards.push('TCP');
+                    break;
+                case 'ddos': {
+                    if (!consumeShieldIfActive(player, 'DDoS')) {
+                        addLog(`<span class="log-red">Casilla DDoS — ${player.name} retrocede 2 nodos</span>`);
+                        let back = player.pos;
+                        for (let i = 0; i < 2; i++) {
+                            const nb = getValidNeighbors(back);
+                            if (nb.length) {
+                                nb.sort((a, b) => dist(b, 24) - dist(a, 24));
+                                back = nb[0];
+                            }
+                        }
+                        player.pos = back;
+                    }
+                    break;
+                }
+                case 'broadcast':
+                    addLog(`<span class="log-purple">¡Tormenta de Broadcast! Todos mueven a la mitad el próximo turno</span>`);
+                    G.players.forEach(p => p.halfMove = true);
+                    break;
+                case 'admin':
+                    addLog(`<span class="log-green">Nodo Admin — ${player.name} obtiene carta RECONFIG</span>`);
+                    player.cards.push('RECONFIG');
+                    break;
+            }
+
+            G.players.forEach(other => {
+                if (other.id !== player.id && other.pos === player.pos) {
+                    const myRoll = Math.ceil(Math.random() * 6), theirRoll = Math.ceil(Math.random() * 6);
+                    addLog(`<span class="log-red">¡Colisión de Paquetes!</span> ${player.name}(${myRoll}) vs ${other.name}(${theirRoll})`);
+                    if (myRoll < theirRoll) { player.pos = Math.max(0, player.pos - 2); addLog(`${player.name} retrocede 2`); }
+                    else if (theirRoll < myRoll) { other.pos = Math.max(0, other.pos - 2); addLog(`${other.name} retrocede 2`); }
+                    else { addLog(`Empate — ambos se quedan`); }
+                }
+            });
+
+            if (Math.random() < 0.25) {
+                const deckCards = ['PING', 'DDoS ATK', 'DEEP INSPECT'];
+                const card = deckCards[Math.floor(Math.random() * deckCards.length)];
+                player.cards.push(card);
+                addLog(`<span class="log-amber">${player.name} recibe carta: ${card}</span>`);
+            }
+
+            G.phase = 'done';
+            drawBoard();
+            renderSidebar();
+        }
+
+        function rollACK() {
+            const roll = Math.ceil(Math.random() * 6);
+            const cp = G.players[G.turn];
+            const success = roll % 2 === 0;
+            addLog(`ACK Roll: <span class="log-amber">${roll}</span> — ${success ? '<span class="log-green">¡PAR! Transmisión confirmada</span>' : '<span class="log-red">Impar — debes esperar otro turno</span>'}`);
+            if (success) {
+                document.getElementById('win-name').textContent = cp.name;
+                renderFinalGuide();
+                showScreen('win-screen');
+            } else {
+                G.phase = 'done';
+                renderSidebar();
+            }
+        }
+
+        function renderFinalGuide() {
+            const grid = document.getElementById('win-guide-grid');
+            grid.innerHTML = NODE_GUIDE.map(item => `
+    <div class="guide-card">
+      <div class="guide-card-head">
+        <span class="guide-card-dot" style="background:${item.color};border:1px solid ${item.color};"></span>
+        <div class="guide-card-title">${item.title}</div>
+      </div>
+      <div class="guide-card-type">${item.label}</div>
+      <div class="guide-card-text">${item.text}</div>
+    </div>
+  `).join('');
+        }
+
+        function getCardDescription(card) {
+            return {
+                'TCP': 'Ignora el próximo Router, DDoS o DDoS ATK',
+                'RECONFIG': 'Bloquea o libera una ruta del tablero',
+                'PING': 'Roba una carta del mazo de eventos',
+                'DDoS ATK': 'Hace retroceder 2 nodos a un oponente',
+                'DEEP INSPECT': 'Descarta una carta aleatoria de un rival'
+            }[card] || 'Carta especial';
+        }
+
+        function openCardModal() {
+            const cp = is_online_mode ? G.players.find(p => p.id === my_socket_id) || G.players[G.turn] : G.players[G.turn];
+            if (!cp.cards.length) return;
+            const list = document.getElementById('card-list');
+            list.innerHTML = cp.cards.map((card, i) => `
+    <div class="card-item" onclick="useCard(${i})">
+      <div class="card-item-name">${card}</div>
+      <div class="card-item-desc">${getCardDescription(card)}</div>
+    </div>`).join('');
+            document.getElementById('card-modal').classList.add('show');
+        }
+        function closeCardModal() { document.getElementById('card-modal').classList.remove('show'); }
+
+        function openPeekModal() {
+            const cp = is_online_mode ? G.players.find(p => p.id === my_socket_id) || G.players[G.turn] : G.players[G.turn];
+            const list = document.getElementById('peek-list');
+            list.innerHTML = cp.cards.length
+                ? cp.cards.map(card => `<div class="card-item"><div class="card-item-name">${card}</div><div class="card-item-desc">${getCardDescription(card)}</div></div>`).join('')
+                : '<div class="card-item"><div class="card-item-name">Sin cartas</div><div class="card-item-desc">Aún no has recibido cartas.</div></div>';
+            document.getElementById('peek-modal').classList.add('show');
+        }
+        function closePeekModal() { document.getElementById('peek-modal').classList.remove('show'); }
+
+        function useCard(idx) {
+            closeCardModal();
+
+            if (is_online_mode) {
+                socket.emit('use_card', { code: room_code || G.roomCode, cardIndex: idx });
+                return;
+            }
+
+            const cp = G.players[G.turn];
+            const card = cp.cards.splice(idx, 1)[0];
+            addLog(`<span style="color:${cp.color}">${cp.name}</span> usó <span class="log-amber">${card}</span>`);
+            switch (card) {
+                case 'TCP':
+                    cp._tcpShield = true;
+                    addLog(`<span class="log-cyan">TCP Shield activo — próximo efecto negativo ignorado</span>`);
+                    break;
+                case 'RECONFIG':
+                    if (!G.blockedEdge) {
+                        const eIdx = Math.floor(Math.random() * (EDGES.length - 4));
+                        G.blockedEdge = EDGES[eIdx];
+                        addLog(`<span class="log-green">Ruta bloqueada: nodo ${G.blockedEdge[0]} ↔ ${G.blockedEdge[1]}</span>`);
+                    } else {
+                        G.blockedEdge = null;
+                        addLog(`<span class="log-green">Bloqueo de ruta eliminado</span>`);
+                    }
+                    drawBoard();
+                    break;
+                case 'PING': {
+                    const deckCards = ['TCP', 'RECONFIG', 'DDoS ATK'];
+                    const drawn = deckCards[Math.floor(Math.random() * deckCards.length)];
+                    cp.cards.push(drawn);
+                    addLog(`<span class="log-cyan">PING — robó carta: ${drawn}</span>`);
+                    break;
+                }
+                case 'DDoS ATK': {
+                    const targets = G.players.filter(p => p.id !== cp.id);
+                    if (targets.length) {
+                        const t = targets[Math.floor(Math.random() * targets.length)];
+                        if (!consumeShieldIfActive(t, 'DDoS ATK')) {
+                            t.pos = Math.max(0, t.pos - 2);
+                            addLog(`<span class="log-red">DDoS — ${t.name} retrocede 2 nodos</span>`);
+                        }
+                        drawBoard();
+                    }
+                    break;
+                }
+                case 'DEEP INSPECT': {
+                    const opp = G.players.filter(p => p.id !== cp.id && p.cards.length > 0);
+                    if (opp.length) {
+                        const t = opp[Math.floor(Math.random() * opp.length)];
+                        const stolen = t.cards.splice(Math.floor(Math.random() * t.cards.length), 1)[0];
+                        addLog(`<span class="log-purple">Deep Inspect — descartó ${stolen} de ${t.name}</span>`);
+                    } else {
+                        addLog(`No hay oponentes con cartas para inspeccionar`);
+                    }
+                    break;
+                }
+            }
+            renderSidebar();
+        }
+
+        function endTurn() {
+            if (is_online_mode) {
+                socket.emit('end_turn', { code: room_code || G.roomCode });
+                return;
+            }
+
+            G.pendingMove = null;
+            G.turn = (G.turn + 1) % G.players.length;
+            G.phase = 'roll';
+            addLog(`Turno de <span style="color:${G.players[G.turn].color}">${G.players[G.turn].name}</span>`);
+            renderSidebar();
+            showPassOverlay();
+        }
+
+        function addLog(msg) {
+            const log = document.getElementById('log');
+            log.innerHTML += `<div class="log-entry">> ${msg}</div>`;
+            log.scrollTop = log.scrollHeight;
+        }
+
+        function openRulesModal() { document.getElementById('rules-modal').classList.add('show'); }
+        function closeRulesModal() { document.getElementById('rules-modal').classList.remove('show'); }
+
+        function showPassOverlay(initial = false) {
+            if (is_online_mode) return;
+            const cp = G.players?.[G.turn];
+            if (!cp) return;
+            document.getElementById('pass-name').innerHTML = `<span style="color:${cp.color}">${cp.name}</span>`;
+            document.getElementById('pass-cards').textContent = initial
+                ? `Cartas iniciales: ${cp.cards.length}`
+                : `Cartas ocultas de este jugador: ${cp.cards.length}`;
+            document.getElementById('pass-overlay').classList.add('show');
+        }
+        function hidePassOverlay() { document.getElementById('pass-overlay').classList.remove('show'); }
+
+        function resetGame() {
+            is_online_mode = false;
+            room_code = null;
+            document.getElementById('mode-label').textContent = 'LOCAL MODE • HOTSEAT';
+            document.getElementById('room-info').textContent = 'Aún no estás en una sala.';
+            document.getElementById('lobby-players').innerHTML = '';
+            G = { numPlayers: 2 };
+            showScreen('setup');
+            document.querySelectorAll('.count-btn').forEach(b => b.classList.toggle('active', +b.dataset.n === 2));
+            renderPlayerInputs();
+            closeRulesModal();
+            closeCardModal();
+            closePeekModal();
+            hidePassOverlay();
+        }
+
+        G = { numPlayers: 2 };
+        renderPlayerInputs();
+    </script>
+</body>
+
+</html>
