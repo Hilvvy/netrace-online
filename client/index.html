@@ -967,8 +967,8 @@
             <div class="rules-grid">
                 <div class="rules-box">
                     <h4>Objetivo</h4>
-                    <p>Ser el primer paquete de datos en llegar al Servidor Central y confirmar la transmisión con un
-                        ACK par.</p>
+                    <p>Conseguir HANDSHAKE en TCP o ADMIN, llegar al Servidor Central, lanzar un ACK par desde la ronda
+                        7 y resistir 3 rondas dentro del servidor.</p>
                 </div>
                 <div class="rules-box">
                     <h4>Turno</h4>
@@ -981,10 +981,10 @@
                     <ul>
                         <li><strong>Fibra:</strong> acelera tu avance.</li>
                         <li><strong>Router Saturado:</strong> te hace perder turno.</li>
-                        <li><strong>TCP:</strong> te entrega una protección.</li>
+                        <li><strong>TCP:</strong> te da HANDSHAKE, una carta TCP Shield y puede darte ACK ANULADOR.</li>
                         <li><strong>DDoS:</strong> te retrasa.</li>
                         <li><strong>Broadcast:</strong> reduce el próximo movimiento de todos.</li>
-                        <li><strong>Admin:</strong> te da carta de reconfiguración.</li>
+                        <li><strong>Admin:</strong> te da HANDSHAKE, una carta RECONFIG y puede darte ACK ANULADOR.</li>
                     </ul>
                 </div>
                 <div class="rules-box">
@@ -996,6 +996,8 @@
                         <li><strong>PING:</strong> roba una carta.</li>
                         <li><strong>DDoS ATK:</strong> hace retroceder a un rival.</li>
                         <li><strong>DEEP INSPECT:</strong> descarta una carta de un rival al azar.</li>
+                        <li><strong>ACK ANULADOR:</strong> dentro del Servidor Central rompe el ACK confirmado de un
+                            rival y le quita el HANDSHAKE.</li>
                     </ul>
                 </div>
                 <div class="rules-box">
@@ -1006,9 +1008,8 @@
                 </div>
                 <div class="rules-box">
                     <h4>Victoria</h4>
-                    <p>Llegar al Servidor Central no basta: debes lanzar ACK. Si sale número par, la entrega queda
-                        confirmada y
-                        ganas.</p>
+                    <p>No puedes lanzar ACK antes de la ronda 7. Si el ACK sale par, queda confirmado, pero todavía
+                        debes resistir 3 rondas dentro del Servidor Central para ganar.</p>
                 </div>
             </div>
             <div class="modal-actions">
@@ -1112,7 +1113,7 @@
             ddos: { name: 'DDoS', pass: 'Pierdes 1 paso restante.', land: 'Retrocedes 2 nodos.' },
             broadcast: { name: 'Broadcast', pass: 'Todos moverán a la mitad el próximo turno.', land: 'Todos moverán a la mitad el próximo turno.' },
             admin: { name: 'Admin', pass: 'Recibes carta RECONFIG.', land: 'Recibes carta RECONFIG.' },
-            server: { name: 'Servidor Central', pass: 'Debes lanzar ACK para confirmar.', land: 'Debes lanzar ACK para confirmar.' }
+            server: { name: 'Servidor Central', pass: 'ACK desde ronda 7. Si confirmas, debes resistir 3 rondas.', land: 'Necesitas HANDSHAKE para intentar el ACK.' }
         };
         const NODE_GUIDE = [
             { type: 'entry', label: 'ENTRADA', color: '#3366aa', title: 'Entrada', text: 'Es el punto de inicio de cada jugador. No tiene efecto especial; solo marca dónde comienza la ruta.' },
@@ -1123,7 +1124,7 @@
             { type: 'ddos', label: 'DDoS', color: '#ff6600', title: 'DDoS', text: 'Es un ataque de tráfico malicioso. Al caer retrocedes 2 nodos y al pasar pierdes 1 paso de movimiento.' },
             { type: 'broadcast', label: 'BROADCAST', color: '#b060ff', title: 'Broadcast', text: 'Representa una transmisión general a toda la red. Activa movimiento a la mitad para todos en el siguiente turno.' },
             { type: 'admin', label: 'ADMIN', color: '#00aa44', title: 'Nodo admin', text: 'Es un nodo de control. Te entrega una carta RECONFIG para bloquear o liberar una ruta del tablero.' },
-            { type: 'server', label: 'SERVIDOR CENTRAL', color: '#b060ff', title: 'Servidor central', text: 'Es el objetivo final. Cuando llegas aquí debes confirmar la transmisión con un lanzamiento ACK par.' }
+            { type: 'server', label: 'SERVIDOR CENTRAL', color: '#b060ff', title: 'Servidor central', text: 'El ACK se desbloquea desde la ronda 7. Si confirmas, debes resistir 3 rondas. Un rival con ACK ANULADOR puede romper tu ACK y quitarte el HANDSHAKE.' }
         ];
 
         let G = {};
@@ -1254,7 +1255,7 @@
             G.players = [];
             for (let i = 0; i < G.numPlayers; i++) {
                 const name = document.getElementById(`pname-${i}`).value || `P${i + 1}`;
-                G.players.push({ id: i, name, color: COLORS[i], pos: 0, cards: [], skips: 0, halfMove: false, _tcpShield: false });
+                G.players.push({ id: i, name, color: COLORS[i], pos: 0, cards: [], skips: 0, halfMove: false, _tcpShield: false, hasHandshake: false, ackConfirmed: false, ackWaitRounds: 0 });
             }
             G.turn = 0;
             G.phase = 'roll';
@@ -1262,6 +1263,8 @@
             G.pendingMove = null;
             G.selectedNode = 0;
             G.log = [];
+            G.round = 1;
+            G.winnerName = null;
             showScreen('game');
             drawBoard();
             renderSidebar();
@@ -1347,6 +1350,8 @@
         <span>POS:</span><span>${p.pos}</span>
         <span>SKIPS:</span><span>${p.skips}</span>
         <span>ESCUDO:</span><span>${p._tcpShield ? 'ACTIVO' : '—'}</span>
+        <span>HANDSHAKE:</span><span>${p.hasHandshake ? 'SÍ' : '—'}</span>
+        <span>ACK:</span><span>${p.ackConfirmed ? `CONFIRMADO (${p.ackWaitRounds})` : '—'}</span>
       </div>
       ${canRevealCards
                         ? `<div class="pc-cards">${p.cards.map(c => `<div class="mini-card">${c}</div>`).join('') || '<div class="card-count">Sin cartas</div>'}</div>`
@@ -1356,7 +1361,7 @@
 
             const cp = G.players[G.turn];
             const isMyTurn = !is_online_mode || cp.id === my_socket_id;
-            document.getElementById('turn-label').textContent = `TURNO: ${cp.name}${is_online_mode && isMyTurn ? ' (TÚ)' : ''}`;
+            document.getElementById('turn-label').textContent = `RONDA ${G.round || 1} • TURNO: ${cp.name}${is_online_mode && isMyTurn ? ' (TÚ)' : ''}`;
             updateStatusChip();
 
             const rollBtn = document.getElementById('roll-btn');
@@ -1381,12 +1386,12 @@
             } else if (G.phase === 'ack') {
                 rollBtn.disabled = !isMyTurn;
                 rollBtn.textContent = '🎲 LANZAR ACK';
-                useBtn.style.display = 'none';
+                useBtn.style.display = isMyTurn && myPlayer && myPlayer.cards.length > 0 ? 'block' : 'none';
                 peekBtn.style.display = myPlayer && myPlayer.cards.length > 0 ? 'block' : 'none';
                 endBtn.style.display = 'none';
             } else {
                 rollBtn.disabled = true;
-                useBtn.style.display = 'none';
+                useBtn.style.display = isMyTurn && myPlayer && myPlayer.cards.length > 0 ? 'block' : 'none';
                 peekBtn.style.display = myPlayer && myPlayer.cards.length > 0 ? 'block' : 'none';
                 endBtn.style.display = isMyTurn ? 'block' : 'none';
             }
@@ -1398,12 +1403,14 @@
             const cp = G.players[G.turn];
             const chip = document.getElementById('status-chip');
             const prefix = is_online_mode
-                ? `Sala ${room_code || G.roomCode || '----'} • `
-                : 'Local • ';
+                ? `Sala ${room_code || G.roomCode || '----'} • Ronda ${G.round || 1} • `
+                : `Local • Ronda ${G.round || 1} • `;
             const labels = {
-                roll: `Turno activo de ${cp.name}. Lanza el dado.`,
+                roll: cp.ackConfirmed && cp.pos === 24
+                    ? `${cp.name} defiende el ACK en el Servidor Central. Faltan ${cp.ackWaitRounds} rondas.`
+                    : `Turno activo de ${cp.name}. Lanza el dado.`,
                 choose: `Elige la siguiente ruta para ${cp.name}.`,
-                ack: `${cp.name} está en el Servidor Central. Falta confirmar con ACK.`,
+                ack: `${cp.name} está en el Servidor Central. Puede intentar el ACK.`,
                 done: `Turno resuelto.${is_online_mode ? ' Esperando siguiente acción.' : ' Puedes pasar al siguiente jugador.'}`,
                 finished: `Partida finalizada.`
             };
@@ -1427,6 +1434,12 @@
             const cp = G.players[G.turn];
             if (G.phase === 'ack') return rollACK();
             if (G.phase !== 'roll') return;
+            if (cp.ackConfirmed && cp.pos === 24) {
+                G.phase = 'done';
+                addLog(`<span class="log-cyan">${cp.name} permanece en el Servidor Central. Faltan ${cp.ackWaitRounds} rondas para ganar</span>`);
+                renderSidebar();
+                return;
+            }
             if (cp.skips > 0) {
                 cp.skips--;
                 addLog(`<span style="color:${cp.color}">${cp.name}</span> <span class="log-red">pierde turno (Router Saturado)</span>`);
@@ -1548,6 +1561,78 @@
             return true;
         }
 
+        function hasCard(player, cardName) {
+            return player.cards.includes(cardName);
+        }
+
+        function clearAckProgress(player) {
+            player.ackConfirmed = false;
+            player.ackWaitRounds = 0;
+        }
+
+        function rewardNetworkAccess(player, sourceLabel, baseCard) {
+            player.hasHandshake = true;
+            addLog(`<span class="log-green">${player.name} obtuvo HANDSHAKE en ${sourceLabel}</span>`);
+            player.cards.push(baseCard);
+            addLog(`<span class="log-cyan">${player.name} obtiene carta ${baseCard}</span>`);
+
+            if (!hasCard(player, 'ACK ANULADOR') && Math.random() < 0.5) {
+                player.cards.push('ACK ANULADOR');
+                addLog(`<span class="log-purple">${player.name} recibió ACK ANULADOR</span>`);
+            }
+        }
+
+        function resolveServerArrival(player) {
+            if (player.ackConfirmed) {
+                G.phase = 'done';
+                addLog(`<span class="log-cyan">${player.name} se mantiene defendiendo su ACK (${player.ackWaitRounds} rondas)</span>`);
+                renderSidebar(); drawBoard(); return true;
+            }
+
+            if ((G.round || 1) < 7) {
+                G.phase = 'done';
+                addLog(`<span class="log-amber">${player.name} llegó al Servidor Central, pero el ACK se desbloquea hasta la ronda 7</span>`);
+                renderSidebar(); drawBoard(); return true;
+            }
+
+            if (!player.hasHandshake) {
+                G.phase = 'done';
+                addLog(`<span class="log-red">${player.name} llegó al Servidor Central sin HANDSHAKE. Debe volver a TCP o ADMIN</span>`);
+                renderSidebar(); drawBoard(); return true;
+            }
+
+            G.phase = 'ack';
+            addLog(`<span style="color:${player.color}">${player.name}</span> <span class="log-cyan">llegó al Servidor Central — puede lanzar ACK</span>`);
+            renderSidebar(); drawBoard(); return true;
+        }
+
+        function progressRound() {
+            G.round = (G.round || 1) + 1;
+            addLog(`<span class="log-amber">=== RONDA ${G.round} ===</span>`);
+
+            for (const player of G.players) {
+                if (!player.ackConfirmed) continue;
+                if (player.pos !== 24) {
+                    clearAckProgress(player);
+                    continue;
+                }
+
+                player.ackWaitRounds -= 1;
+                if (player.ackWaitRounds > 0) {
+                    addLog(`<span class="log-cyan">${player.name} mantiene el ACK. Faltan ${player.ackWaitRounds} rondas</span>`);
+                    continue;
+                }
+
+                G.winnerName = player.name;
+                document.getElementById('win-name').textContent = player.name;
+                renderFinalGuide();
+                showScreen('win-screen');
+                return true;
+            }
+
+            return false;
+        }
+
         function applyPassThroughEffect(player, node) {
             switch (node.type) {
                 case 'fiber':
@@ -1555,8 +1640,7 @@
                     addLog(`<span class="log-green">Fibra en tránsito — ${player.name} gana +1 paso</span>`);
                     break;
                 case 'tcp':
-                    player.cards.push('TCP');
-                    addLog(`<span class="log-cyan">TCP en tránsito — ${player.name} obtiene carta TCP SHIELD</span>`);
+                    rewardNetworkAccess(player, 'TCP', 'TCP');
                     break;
             }
             return false;
@@ -1570,9 +1654,8 @@
         function applyNodeEffect(player, node) {
             switch (node.type) {
                 case 'server':
-                    addLog(`<span style="color:${player.color}">${player.name}</span> <span class="log-cyan">llegó al Servidor Central — lanzar ACK</span>`);
-                    G.phase = 'ack';
-                    renderSidebar(); drawBoard(); return;
+                    resolveServerArrival(player);
+                    return;
                 case 'router':
                     if (!consumeShieldIfActive(player, 'Router Saturado')) {
                         addLog(`<span class="log-red">Router Saturado — ${player.name} pierde 1 turno</span>`);
@@ -1590,18 +1673,17 @@
                         const nextNode = nb[0];
                         previous = cur;
                         cur = nextNode;
+                        applyPassThroughEffect(player, NODES[cur]);
                     }
                     player.pos = cur;
                     if (NODES[cur].type === 'server') {
-                        G.phase = 'ack';
-                        addLog(`<span class="log-cyan">${player.name} llegó al Servidor Central — lanzar ACK</span>`);
-                        renderSidebar(); drawBoard(); return;
+                        resolveServerArrival(player);
+                        return;
                     }
                     break;
                 }
                 case 'tcp':
-                    addLog(`<span class="log-cyan">Casilla TCP — ${player.name} obtiene carta TCP SHIELD</span>`);
-                    player.cards.push('TCP');
+                    rewardNetworkAccess(player, 'TCP', 'TCP');
                     break;
                 case 'ddos': {
                     if (!consumeShieldIfActive(player, 'DDoS')) {
@@ -1623,20 +1705,21 @@
                     G.players.forEach(p => p.halfMove = true);
                     break;
                 case 'admin':
-                    addLog(`<span class="log-green">Nodo Admin — ${player.name} obtiene carta RECONFIG</span>`);
-                    player.cards.push('RECONFIG');
+                    rewardNetworkAccess(player, 'ADMIN', 'RECONFIG');
                     break;
             }
 
-            G.players.forEach(other => {
-                if (other.id !== player.id && other.pos === player.pos) {
-                    const myRoll = Math.ceil(Math.random() * 6), theirRoll = Math.ceil(Math.random() * 6);
-                    addLog(`<span class="log-red">¡Colisión de Paquetes!</span> ${player.name}(${myRoll}) vs ${other.name}(${theirRoll})`);
-                    if (myRoll < theirRoll) { player.pos = Math.max(0, player.pos - 2); addLog(`${player.name} retrocede 2`); }
-                    else if (theirRoll < myRoll) { other.pos = Math.max(0, other.pos - 2); addLog(`${other.name} retrocede 2`); }
-                    else { addLog(`Empate — ambos se quedan`); }
-                }
-            });
+            if (player.pos !== 24) {
+                G.players.forEach(other => {
+                    if (other.id !== player.id && other.pos === player.pos && other.pos !== 24) {
+                        const myRoll = Math.ceil(Math.random() * 6), theirRoll = Math.ceil(Math.random() * 6);
+                        addLog(`<span class="log-red">¡Colisión de Paquetes!</span> ${player.name}(${myRoll}) vs ${other.name}(${theirRoll})`);
+                        if (myRoll < theirRoll) { player.pos = Math.max(0, player.pos - 2); addLog(`${player.name} retrocede 2`); }
+                        else if (theirRoll < myRoll) { other.pos = Math.max(0, other.pos - 2); addLog(`${other.name} retrocede 2`); }
+                        else { addLog(`Empate — ambos se quedan`); }
+                    }
+                });
+            }
 
             if (Math.random() < 0.25) {
                 const deckCards = ['PING', 'DDoS ATK', 'DEEP INSPECT'];
@@ -1651,18 +1734,32 @@
         }
 
         function rollACK() {
-            const roll = Math.ceil(Math.random() * 6);
             const cp = G.players[G.turn];
-            const success = roll % 2 === 0;
-            addLog(`ACK Roll: <span class="log-amber">${roll}</span> — ${success ? '<span class="log-green">¡PAR! Transmisión confirmada</span>' : '<span class="log-red">Impar — debes esperar otro turno</span>'}`);
-            if (success) {
-                document.getElementById('win-name').textContent = cp.name;
-                renderFinalGuide();
-                showScreen('win-screen');
-            } else {
+
+            if ((G.round || 1) < 7) {
+                addLog(`<span class="log-red">No se puede lanzar ACK antes de la ronda 7</span>`);
                 G.phase = 'done';
                 renderSidebar();
+                return;
             }
+
+            if (!cp.hasHandshake) {
+                addLog(`<span class="log-red">${cp.name} no tiene HANDSHAKE para lanzar ACK</span>`);
+                G.phase = 'done';
+                renderSidebar();
+                return;
+            }
+
+            const roll = Math.ceil(Math.random() * 6);
+            const success = roll % 2 === 0;
+            addLog(`ACK Roll: <span class="log-amber">${roll}</span> — ${success ? '<span class="log-green">ACK confirmado</span>' : '<span class="log-red">Impar — debes esperar otro turno</span>'}`);
+            if (success) {
+                cp.ackConfirmed = true;
+                cp.ackWaitRounds = 3;
+                addLog(`<span class="log-cyan">${cp.name} debe resistir 3 rondas en el Servidor Central para ganar</span>`);
+            }
+            G.phase = 'done';
+            renderSidebar();
         }
 
         function renderFinalGuide() {
@@ -1685,7 +1782,8 @@
                 'RECONFIG': 'Bloquea o libera una ruta del tablero',
                 'PING': 'Roba una carta del mazo de eventos',
                 'DDoS ATK': 'Hace retroceder 2 nodos a un oponente',
-                'DEEP INSPECT': 'Descarta una carta aleatoria de un rival'
+                'DEEP INSPECT': 'Descarta una carta aleatoria de un rival',
+                'ACK ANULADOR': 'Anula el ACK confirmado de un rival en el Servidor Central y le quita el HANDSHAKE'
             }[card] || 'Carta especial';
         }
 
@@ -1730,8 +1828,9 @@
                     break;
                 case 'RECONFIG':
                     if (!G.blockedEdge) {
-                        const eIdx = Math.floor(Math.random() * (EDGES.length - 4));
-                        G.blockedEdge = EDGES[eIdx];
+                        const validEdges = EDGES.filter(([a, b]) => !((a === 17 && b === 24) || (a === 19 && b === 24) || (a === 21 && b === 24) || (a === 23 && b === 24)));
+                        const eIdx = Math.floor(Math.random() * validEdges.length);
+                        G.blockedEdge = validEdges[eIdx];
                         addLog(`<span class="log-green">Ruta bloqueada: nodo ${G.blockedEdge[0]} ↔ ${G.blockedEdge[1]}</span>`);
                     } else {
                         G.blockedEdge = null;
@@ -1740,7 +1839,7 @@
                     drawBoard();
                     break;
                 case 'PING': {
-                    const deckCards = ['TCP', 'RECONFIG', 'DDoS ATK'];
+                    const deckCards = ['TCP', 'RECONFIG', 'DDoS ATK', 'DEEP INSPECT'];
                     const drawn = deckCards[Math.floor(Math.random() * deckCards.length)];
                     cp.cards.push(drawn);
                     addLog(`<span class="log-cyan">PING — robó carta: ${drawn}</span>`);
@@ -1752,6 +1851,7 @@
                         const t = targets[Math.floor(Math.random() * targets.length)];
                         if (!consumeShieldIfActive(t, 'DDoS ATK')) {
                             t.pos = Math.max(0, t.pos - 2);
+                            if (t.pos !== 24) clearAckProgress(t);
                             addLog(`<span class="log-red">DDoS — ${t.name} retrocede 2 nodos</span>`);
                         }
                         drawBoard();
@@ -1769,9 +1869,30 @@
                     }
                     break;
                 }
+                case 'ACK ANULADOR': {
+                    if (cp.pos !== 24) {
+                        cp.cards.push('ACK ANULADOR');
+                        addLog(`<span class="log-red">ACK ANULADOR solo puede usarse dentro del Servidor Central</span>`);
+                        break;
+                    }
+
+                    const targets = G.players.filter(p => p.id !== cp.id && p.pos === 24 && p.ackConfirmed);
+                    if (!targets.length) {
+                        cp.cards.push('ACK ANULADOR');
+                        addLog(`<span class="log-red">No hay rivales con ACK confirmado en el Servidor Central</span>`);
+                        break;
+                    }
+
+                    const t = targets[Math.floor(Math.random() * targets.length)];
+                    clearAckProgress(t);
+                    t.hasHandshake = false;
+                    addLog(`<span class="log-purple">${cp.name} anuló el ACK de ${t.name}. ${t.name} perdió también el HANDSHAKE</span>`);
+                    break;
+                }
             }
             renderSidebar();
         }
+
 
         function endTurn() {
             if (is_online_mode) {
@@ -1781,8 +1902,12 @@
 
             G.pendingMove = null;
             G.turn = (G.turn + 1) % G.players.length;
-            G.phase = 'roll';
-            addLog(`Turno de <span style="color:${G.players[G.turn].color}">${G.players[G.turn].name}</span>`);
+            if (G.turn === 0) {
+                if (progressRound()) return;
+            }
+            const cp = G.players[G.turn];
+            G.phase = cp.ackConfirmed && cp.pos === 24 ? 'done' : 'roll';
+            addLog(`Turno de <span style="color:${cp.color}">${cp.name}</span>`);
             renderSidebar();
             showPassOverlay();
         }

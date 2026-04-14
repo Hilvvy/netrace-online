@@ -82,7 +82,11 @@ function createInitialPlayer(socketId, name, index) {
         cards: [],
         skips: 0,
         halfMove: false,
-        tcpShield: false
+        tcpShield: false,
+
+        hasHandshake: false,
+        ackConfirmed: false,
+        ackConfirmRound: null
     };
 }
 
@@ -90,6 +94,7 @@ function createRoomState(players) {
     return {
         players: players.map((p, i) => createInitialPlayer(p.id, p.name, i)),
         turn: 0,
+        round: 1,
         phase: "roll",
         log: [],
         blockedEdge: null,
@@ -160,6 +165,55 @@ function addCard(player, card, room) {
     addLog(room, `${player.name} obtuvo carta ${card}`);
 }
 
+function giveHandshake(player, room) {
+    if (!player.hasHandshake) {
+        player.hasHandshake = true;
+        addLog(room, `${player.name} obtuvo HANDSHAKE`);
+    } else {
+        addLog(room, `${player.name} reforzó su HANDSHAKE`);
+    }
+}
+
+function tryGiveAckCanceler(player, room) {
+    const alreadyHas = player.cards.includes("ACK ANULADOR");
+    if (alreadyHas) return;
+
+    if (Math.random() < 0.5) {
+        addCard(player, "ACK ANULADOR", room);
+    }
+}
+
+function resetAckState(player) {
+    player.ackConfirmed = false;
+    player.ackConfirmRound = null;
+}
+
+function getRoundsRemainingForVictory(room, player) {
+    if (!player.ackConfirmed || player.ackConfirmRound == null) return null;
+    const roundsWaited = room.state.round - player.ackConfirmRound;
+    return Math.max(0, 3 - roundsWaited);
+}
+
+function maybeFinishWaitingPlayer(room) {
+    const player = currentPlayer(room);
+    if (!player) return false;
+
+    if (!player.ackConfirmed) return false;
+    if (player.pos !== 24) return false;
+
+    const roundsRemaining = getRoundsRemainingForVictory(room, player);
+
+    if (roundsRemaining <= 0) {
+        room.state.phase = "finished";
+        room.state.winnerId = player.id;
+        room.state.winnerName = player.name;
+        addLog(room, `${player.name} resistió 3 rondas en el Servidor Central y ganó la partida`);
+        return true;
+    }
+
+    return false;
+}
+
 function applyPassThroughEffect(room, player, nodeId) {
     const node = getNode(nodeId);
 
@@ -171,6 +225,8 @@ function applyPassThroughEffect(room, player, nodeId) {
 
         case "tcp":
             addCard(player, "TCP", room);
+            giveHandshake(player, room);
+            tryGiveAckCanceler(player, room);
             break;
     }
 }
@@ -187,9 +243,11 @@ function checkCollision(room, player) {
 
         if (myRoll > theirRoll) {
             other.pos = Math.max(0, other.pos - 2);
+            resetAckState(other);
             addLog(room, `${other.name} retrocede 2 nodos`);
         } else if (theirRoll > myRoll) {
             player.pos = Math.max(0, player.pos - 2);
+            resetAckState(player);
             addLog(room, `${player.name} retrocede 2 nodos`);
         } else {
             addLog(room, `Empate en colisión. Ambos permanecen.`);
@@ -228,8 +286,16 @@ function applyLandingEffect(room, player) {
             player.pos = current;
 
             if (player.pos === 24) {
-                room.state.phase = "ack";
-                addLog(room, `${player.name} llegó al Servidor Central. Debe lanzar ACK.`);
+                if (room.state.round < 7) {
+                    addLog(room, `${player.name} llegó al Servidor Central, pero el ACK está bloqueado hasta la ronda 7`);
+                    room.state.phase = "done";
+                } else if (!player.hasHandshake) {
+                    addLog(room, `${player.name} llegó al Servidor Central, pero no tiene HANDSHAKE`);
+                    room.state.phase = "done";
+                } else {
+                    room.state.phase = "ack";
+                    addLog(room, `${player.name} llegó al Servidor Central. Debe lanzar ACK.`);
+                }
                 return;
             }
             break;
@@ -237,6 +303,8 @@ function applyLandingEffect(room, player) {
 
         case "tcp":
             addCard(player, "TCP", room);
+            giveHandshake(player, room);
+            tryGiveAckCanceler(player, room);
             break;
 
         case "ddos":
@@ -253,6 +321,7 @@ function applyLandingEffect(room, player) {
                 }
 
                 player.pos = current;
+                resetAckState(player);
             }
             break;
 
@@ -263,11 +332,21 @@ function applyLandingEffect(room, player) {
 
         case "admin":
             addCard(player, "RECONFIG", room);
+            giveHandshake(player, room);
+            tryGiveAckCanceler(player, room);
             break;
 
         case "server":
-            room.state.phase = "ack";
-            addLog(room, `${player.name} llegó al Servidor Central. Debe lanzar ACK.`);
+            if (room.state.round < 7) {
+                addLog(room, `${player.name} llegó al Servidor Central, pero el ACK está bloqueado hasta la ronda 7`);
+                room.state.phase = "done";
+            } else if (!player.hasHandshake) {
+                addLog(room, `${player.name} llegó al Servidor Central, pero no tiene HANDSHAKE`);
+                room.state.phase = "done";
+            } else {
+                room.state.phase = "ack";
+                addLog(room, `${player.name} llegó al Servidor Central. Debe lanzar ACK.`);
+            }
             return;
     }
 
@@ -418,6 +497,7 @@ io.on("connection", (socket) => {
 
         room.state = createRoomState(room.players);
         addLog(room, `Partida iniciada. Turno de ${room.state.players[0].name}`);
+        addLog(room, `Ronda ${room.state.round}. El ACK se desbloquea en la ronda 7.`);
 
         io.to(code).emit("game_started", {
             ...room.state,
@@ -434,6 +514,19 @@ io.on("connection", (socket) => {
         if (room.state.phase !== "roll") return;
 
         const player = currentPlayer(room);
+
+        if (maybeFinishWaitingPlayer(room)) {
+            emitState(code);
+            return;
+        }
+
+        if (player.ackConfirmed && player.pos === 24) {
+            const roundsRemaining = getRoundsRemainingForVictory(room, player);
+            addLog(room, `${player.name} sigue defendiendo el Servidor Central. Le faltan ${roundsRemaining} rondas.`);
+            room.state.phase = "done";
+            emitState(code);
+            return;
+        }
 
         if (player.skips > 0) {
             player.skips -= 1;
@@ -498,19 +591,35 @@ io.on("connection", (socket) => {
         if (room.state.phase !== "ack") return;
 
         const player = currentPlayer(room);
+
+        if (room.state.round < 7) {
+            addLog(room, `ACK bloqueado hasta la ronda 7`);
+            room.state.phase = "done";
+            emitState(code);
+            return;
+        }
+
+        if (!player.hasHandshake) {
+            addLog(room, `${player.name} intentó ACK sin HANDSHAKE`);
+            room.state.phase = "done";
+            emitState(code);
+            return;
+        }
+
         const roll = Math.ceil(Math.random() * 6);
         room.state.lastRoll = roll;
 
         if (roll % 2 === 0) {
-            room.state.phase = "finished";
-            room.state.winnerId = player.id;
-            room.state.winnerName = player.name;
-            addLog(room, `${player.name} lanzó ACK ${roll} y ganó la partida`);
+            player.ackConfirmed = true;
+            player.ackConfirmRound = room.state.round;
+            addLog(room, `${player.name} lanzó ACK ${roll} correctamente`);
+            addLog(room, `${player.name} debe resistir 3 rondas dentro del Servidor Central para ganar`);
         } else {
-            room.state.phase = "done";
+            resetAckState(player);
             addLog(room, `${player.name} lanzó ACK ${roll} y falló la confirmación`);
         }
 
+        room.state.phase = "done";
         emitState(code);
     });
 
@@ -518,12 +627,43 @@ io.on("connection", (socket) => {
         const room = ensureRoom(code, socket);
         if (!room || !room.state) return;
         if (!ensureMyTurn(room, socket)) return;
-        if (room.state.phase !== "roll" && room.state.phase !== "done") return;
+        if (!["roll", "done", "ack"].includes(room.state.phase)) return;
 
         const player = currentPlayer(room);
         if (cardIndex < 0 || cardIndex >= player.cards.length) return;
 
-        const card = player.cards.splice(cardIndex, 1)[0];
+        const card = player.cards[cardIndex];
+
+        if (card === "ACK ANULADOR") {
+            if (player.pos !== 24) {
+                socket.emit("error_msg", "Solo puedes usar ACK ANULADOR dentro del Servidor Central");
+                return;
+            }
+
+            const target = room.state.players.find(p =>
+                p.id !== player.id &&
+                p.pos === 24 &&
+                p.ackConfirmed
+            );
+
+            if (!target) {
+                socket.emit("error_msg", "No hay un rival con ACK confirmado en el Servidor Central");
+                return;
+            }
+
+            player.cards.splice(cardIndex, 1);
+
+            resetAckState(target);
+            target.hasHandshake = false;
+
+            addLog(room, `${player.name} usó ACK ANULADOR contra ${target.name}`);
+            addLog(room, `${target.name} perdió su ACK confirmado y también su HANDSHAKE`);
+
+            emitState(code);
+            return;
+        }
+
+        player.cards.splice(cardIndex, 1)[0];
         addLog(room, `${player.name} usó ${card}`);
 
         switch (card) {
@@ -558,6 +698,7 @@ io.on("connection", (socket) => {
                     const target = targets[Math.floor(Math.random() * targets.length)];
                     if (!useShieldIfPossible(target, room, "DDoS ATK")) {
                         target.pos = Math.max(0, target.pos - 2);
+                        resetAckState(target);
                         addLog(room, `${target.name} retrocede 2 por DDoS ATK`);
                     }
                 }
@@ -591,7 +732,15 @@ io.on("connection", (socket) => {
         room.state.phase = "roll";
         room.state.lastRoll = null;
 
-        addLog(room, `Turno de ${currentPlayer(room).name}`);
+        if (room.state.turn === 0) {
+            room.state.round += 1;
+            addLog(room, `---- RONDA ${room.state.round} ----`);
+        }
+
+        if (!maybeFinishWaitingPlayer(room)) {
+            addLog(room, `Turno de ${currentPlayer(room).name}`);
+        }
+
         emitState(code);
     });
 
