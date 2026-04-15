@@ -105,6 +105,8 @@ function createRoomState(players) {
     };
 }
 
+
+
 function addLog(room, message) {
     room.state.log.push(message);
     if (room.state.log.length > 80) {

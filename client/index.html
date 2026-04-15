@@ -1049,7 +1049,9 @@
             </div>
         </div>
     </div>
-
+    <audio id="bg-music" loop preload="auto">
+        <source src="music/netrace-theme.mp3" type="audio/mpeg">
+    </audio>
     <script>
         const socket = io();
         let room_code = null;
@@ -1170,6 +1172,8 @@
             is_online_mode = true;
             G = state;
             G.selectedNode = G.selectedNode ?? 0;
+            playBackgroundMusic();
+
             document.getElementById('mode-label').textContent = `ONLINE MODE • SALA ${state.roomCode || room_code || ''}`;
             showScreen('game');
             clearLog();
@@ -1181,12 +1185,14 @@
 
         socket.on('state_update', (state) => {
             if (!is_online_mode) return;
+
             G = state;
             G.selectedNode = G.selectedNode ?? 0;
             document.getElementById('mode-label').textContent = `ONLINE MODE • SALA ${state.roomCode || room_code || ''}`;
             renderLogFromState();
 
             if (G.phase === 'finished') {
+                stopBackgroundMusic();
                 document.getElementById('win-name').textContent = G.winnerName || 'Ganador';
                 renderFinalGuide();
                 showScreen('win-screen');
@@ -1199,6 +1205,48 @@
                 renderNodeInfo(G.selectedNode ?? 0);
             }
         });
+
+        function playBackgroundMusic() {
+            const audio = document.getElementById("bg-music");
+            if (!audio) return;
+
+            audio.volume = 0.35;
+
+            audio.play().catch(err => {
+                console.log("No se pudo reproducir la música automáticamente:", err);
+            });
+        }
+
+        function stopBackgroundMusic() {
+            const audio = document.getElementById("bg-music");
+            if (!audio) return;
+
+            audio.pause();
+            audio.currentTime = 0;
+        }
+
+        function pauseBackgroundMusic() {
+            const audio = document.getElementById("bg-music");
+            if (!audio) return;
+
+            audio.pause();
+        }
+
+        function resumeBackgroundMusic() {
+            const audio = document.getElementById("bg-music");
+            if (!audio) return;
+
+            audio.play().catch(err => {
+                console.log("No se pudo reanudar la música:", err);
+            });
+        }
+
+        function toggleMusic() {
+            const audio = document.getElementById("bg-music");
+            if (!audio) return;
+
+            audio.muted = !audio.muted;
+        }
 
         function renderLogFromState() {
             const log = document.getElementById('log');
@@ -1252,19 +1300,31 @@
             is_online_mode = false;
             room_code = null;
             document.getElementById('mode-label').textContent = 'LOCAL MODE • HOTSEAT';
+
             G.players = [];
             for (let i = 0; i < G.numPlayers; i++) {
                 const name = document.getElementById(`pname-${i}`).value || `P${i + 1}`;
-                G.players.push({ id: i, name, color: COLORS[i], pos: 0, cards: [], skips: 0, halfMove: false, _tcpShield: false, hasHandshake: false, ackConfirmed: false, ackWaitRounds: 0 });
+                G.players.push({
+                    id: i,
+                    name,
+                    color: COLORS[i],
+                    pos: 0,
+                    cards: [],
+                    skips: 0,
+                    halfMove: false,
+                    _tcpShield: false
+                });
             }
+
             G.turn = 0;
             G.phase = 'roll';
             G.blockedEdge = null;
             G.pendingMove = null;
             G.selectedNode = 0;
             G.log = [];
-            G.round = 1;
-            G.winnerName = null;
+
+            playBackgroundMusic();
+
             showScreen('game');
             drawBoard();
             renderSidebar();
@@ -1947,6 +2007,9 @@
             closeCardModal();
             closePeekModal();
             hidePassOverlay();
+            stopBackgroundMusic();
+            location.reload();
+
         }
 
         G = { numPlayers: 2 };
